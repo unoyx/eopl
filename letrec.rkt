@@ -87,14 +87,14 @@
                      (cdr store1) (- ref1 1))))))))
           (setref-inner the-store ref))))
 
-(define-datatype program program?
-  (a-program (exp expression?)))
+;;(define-datatype program program?
+;;  (a-program (exp expression?)))
 
 ;; ENHANCE 3.22
 ;; It can make parser&value-of more clean, but will increase evaluate time,
 ;; consider about how to measure this.
 (define grammar-let
-  '(;; (program (expression) a-progam)
+  '((program (expression) a-progam)
     (expression (number) const-exp)
     (expression (identifier) var-exp)
     (expression ("zero?" expression) zero?-exp)
@@ -132,8 +132,9 @@
   (sllgen:make-string-parser scanner-spec-a grammar-let))
 
 (define (value-of-exp e)
-  (value-of (scan&parse e)
-            (init-env)))
+  (cases program (scan&parse e)
+     (a-progam (exp)
+               (value-of exp (init-env)))))
 
 (define (binds-vars vars vals env)
   (if (null? vars)
