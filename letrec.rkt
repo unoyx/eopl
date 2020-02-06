@@ -279,8 +279,8 @@
                                            (lambda (search-var)
                                              (if (eqv? search-var p-name)
                                                  (proc-val (lambda (vals)
-                                                             (value-of p-body (extend-env-rec p-name b-vars p-body
-                                                                                              (extends-env b-vars vals saved-env)))
+                                                             (value-of p-body (extend-env-rec-helper p-name-list b-vars-list p-body-list
+                                                                                                     (extends-env b-vars vals saved-env)))
                                                              ))
                                                  (apply-env saved-env search-var)))))
                          (extend-env-rec-helper (lambda (p-name-list b-vars-list p-body-list saved-env)
@@ -288,21 +288,8 @@
                                                       saved-env
                                                       (extend-env-rec-helper (cdr p-name-list) (cdr b-vars-list) (cdr p-body-list)
                                                                              (extend-env-rec (car p-name-list) (car b-vars-list) (car p-body-list) saved-env))))))
-                  (begin
-                    (display "p-name-list")
-                    (newline)
-                    (display p-name-list)
-                    (newline)
-                    (display "b-vars-list")
-                    (newline)
-                    (display b-vars-list)
-                    (newline)
-                    (display "p-body-list")
-                    (newline)
-                    (display p-body-list)
-                    (newline)
                     (value-of letrec-body (extend-env-rec-helper p-name-list b-vars-list p-body-list env)))
-                    ))
+                  )
     (newref-exp (exp1)
                 (let ((v1 (value-of exp1 env)))
                   (ref-val (newref v1))))
@@ -375,7 +362,6 @@
                                  deref(deref(y))
                                end")
               (num-val 11))
-;; FIXME
 (check-equal? (value-of-exp "letrec
                                even(x) = if zero? x then 1 else (odd -(x,1))
                                odd(x) = if zero? x then 0 else (even -(x,1))
@@ -385,5 +371,5 @@
                                even(x) = if zero? x then 1 else (odd -(x,1))
                                odd(x) = if zero? x then 0 else (even -(x,1))
                              in (even 1)")
-              (num-val 1))
+              (num-val 0))
 (display "eof")
