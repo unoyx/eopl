@@ -5,6 +5,7 @@
 (provide apply-env)
 (provide scanner-spec-a)
 (provide report-expval-extractor-error)
+(provide report-invalid-reference)
 
 (define (empty-env)
   (lambda (search-var)
@@ -29,6 +30,9 @@
 
 (define (report-expval-extractor-error type val)
   (eopl:printf "Expval extractor error type: ~s value: ~s" type val))
+
+(define (report-invalid-reference ref the-store)
+  (eopl:printf "Invalied reference: ~s store: ~s" ref the-store))
 
 (define scanner-spec-a
   '((white-sp (whitespace) skip)
