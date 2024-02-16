@@ -1,13 +1,12 @@
 #lang eopl
-
-(require racket/trace)
+;; (require racket/trace)
 
 (define empty-env
   empty)
 
 (define extend-env
   (lambda (saved-var saved-val saved-env)
-    (append saved-env (list (list saved-var saved-val)))))
+    (append (list (list saved-var saved-val)) saved-env)))
 
 (define apply-env
   (lambda (env search-var)
@@ -54,10 +53,6 @@
     (cases expval val
            (list-val (my-list) my-list)
            (else (report-expval-extractor-error 'list val)))))
-
-(define init-env
-  (lambda ()
-    empty-env))
 
 (define value-of-program
   (lambda (pgm env)
@@ -122,10 +117,18 @@
                      (if (expval->bool val1)
                          (value-of exp2 env)
                          (value-of exp3 env))))
-           (let-exp (var exp1 body)
-                    (let [(val1 (value-of exp1 env))]
+           (let-exp (vars exps body)
+                    ;; TODO add error for vars is null
+                    (letrec [(vals (map (lambda (exp)
+                                          (value-of exp env)) exps))
+                             (extend-env-iter (lambda (vars vals env)
+                                                (if (null? vars)
+                                                    env
+                                                    (extend-env-iter (cdr vars)
+                                                                     (cdr vals)
+                                                                     (extend-env (car vars) (car vals) env)))))]
                       (value-of body
-                                (extend-env var val1 env)))))))
+                                (extend-env-iter vars vals env)))))))
 
 (define scanner-let
   '((white-sp (whitespace) skip)
@@ -180,7 +183,7 @@
      (identifier)
      var-exp)
     (expression
-     ("let" identifier "=" expression "in" expression)
+     ("let" (arbno identifier "=" expression) "in" expression)
      let-exp)))
 
 (sllgen:make-define-datatypes scanner-let grammar-let)
@@ -218,3 +221,4 @@
 (test-driver "let x = 4 in cons(x,cons(cons(-(x,1),emptylist),emptylist))")
 (test-driver "list(1, 2, 3)")
 (test-driver "equal?(+(car(list(1, 2, 3)),4),5)")
+(test-driver "let x = 30 in let x = -(x,1) y = -(x,2) in -(x,y)")
