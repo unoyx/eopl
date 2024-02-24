@@ -27,9 +27,16 @@
   (lambda (env)
     (list? env)))
 
+(define list-of-symbol?
+  (lambda (symbols)
+    (if (null? symbols)
+        #t
+        (and (symbol? (car symbols))
+             (cdr symbols)))))
+
 (define-datatype proc proc?
   (procedure
-   (var symbol?)
+   (vars list-of-symbol?)
    (body expression?)
    (saved-env environment?)))
 
@@ -79,11 +86,19 @@
            (a-program (exp1)
                       (value-of exp1 env)))))
 
+(define extend-env-iter
+  (lambda (vars vals env)
+    (if (null? vars)
+        env
+        (extend-env-iter (cdr vars)
+                         (cdr vals)
+                         (extend-env (car vars) (car vals) env)))))
+
 (define apply-procedure
-  (lambda (proc1 val)
+  (lambda (proc1 vals)
     (cases proc proc1
-           (procedure (var body saved-env)
-                      (value-of body (extend-env var val saved-env))))))
+           (procedure (vars body saved-env)
+                      (value-of body (extend-env-iter vars vals saved-env))))))
 
 (define value-of
   (lambda (exp env)
@@ -104,11 +119,12 @@
                                                                 (list-val (cons (car the-list)
                                                                                 (list-val-iter (cdr the-list)))))))]
                                     (list-val-iter exp-res)))
-           (proc-exp (var exp)
-                     (proc-val (procedure var exp env)))
-           (call-exp (proc arg)
+           (proc-exp (vars exp)
+                     (proc-val (procedure vars exp env)))
+           (call-exp (proc args)
                      (apply-procedure (expval->proc (value-of proc env))
-                                      (value-of arg env)))
+                                      (map (lambda (arg)
+                                             (value-of arg env)) args)))
            (cons-exp (exp1 exp2)
                      (let ((val1 (value-of exp1 env))
                            (val2 (value-of exp2 env)))
@@ -151,12 +167,7 @@
                     ;; TODO add error out when vars is null
                     (letrec [(vals (map (lambda (exp)
                                           (value-of exp env)) exps))
-                             (extend-env-iter (lambda (vars vals env)
-                                                (if (null? vars)
-                                                    env
-                                                    (extend-env-iter (cdr vars)
-                                                                     (cdr vals)
-                                                                     (extend-env (car vars) (car vals) env)))))]
+                             ]
                       (value-of body
                                 (extend-env-iter vars vals env)))))))
 
@@ -174,10 +185,10 @@
      (number)
      const-exp)
     (expression
-     ("proc" "(" identifier ")" expression)
+     ("proc" "(" (arbno identifier) ")" expression)
      proc-exp)
     (expression
-     ("(" expression expression ")")
+     ("(" expression (arbno expression) ")")
      call-exp)
     (expression
      ("list" "(" (separated-list expression ",") ")")
@@ -259,7 +270,32 @@
 (test-driver "list(1, 2, 3)")
 (test-driver "equal?(+(car(list(1, 2, 3)),4),5)")
 (test-driver "let x = 30 in let x = -(x,1) y = -(x,2) in -(x,y)")
-
 (test-driver "let f = proc (x) -(x,11) in (f 77)")
-
 (test-driver "let f = proc (x) -(x,11) in (f (f 77))")
+;; example of Curried
+(test-driver "let sum = proc (x) proc (y) +(x, y) in ((sum 2) 3)")
+
+(test-driver "let f = proc (x y) -(x, y) in (f 3 2)")
+
+#|
+在函数只能有单个参数的约束下，实现递归调用的方法
+利用柯里化，引入一个额外的参数，绑定要实现递归调用的函数自身
+|#
+(test-driver "let makemult = proc (maker)
+proc (x)
+if zero?(x)
+then 0
+else -(((maker maker) -(x,1)), minus(4))
+in let times4 = proc (x) ((makemult makemult) x)
+in (times4 3)")
+
+(define sum-impl
+  "let sumHelper = proc (nextSum)
+                     proc (n)
+                       if equal? (n, 1) then
+                         1
+                       else + (((nextSum nextSum) -(n, 1)), n)
+   in let sum = proc(n) ((sumHelper sumHelper) n)
+   in (sum 100)")
+
+(test-driver sum-impl)
