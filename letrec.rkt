@@ -11,6 +11,9 @@
    (p-name symbol?)
    (b-var list-of-symbol?)
    (body expression?)
+   (env environment?))
+  (extend-env-rec-procs
+   (p-nemes-assv list?)
    (env environment?)))
 
 ;; (test-driver "let f = proc (x) -(x,11) in (f 77)")
@@ -27,7 +30,14 @@
            (extend-env-rec (p-name b-vars p-body saved-env)
                            (if (eqv? search-var p-name)
                                (proc-val (procedure b-vars p-body env))
-                               (apply-env saved-env search-var))))))
+                               (apply-env saved-env search-var)))
+           (extend-env-rec-procs (p-names-assv saved-env)
+                                 (if (assv search-var p-names-assv)
+                                     (letrec [(res (assv search-var p-names-assv))
+                                              (b-vars (list-ref res 1))
+                                              (p-body (list-ref res 2))]
+                                       (proc-val (procedure b-vars p-body env)))
+                                     (apply-env saved-env search-var))))))
 
 (define list-of-symbol?
   (lambda (symbols)
@@ -102,6 +112,15 @@
            (procedure (vars body saved-env)
                       (value-of body (extend-env-iter vars vals saved-env))))))
 
+(define build-rec-procs-assoc
+  (lambda (p-names b-vars-list p-bodies)
+    (if (null? p-names)
+        empty
+        (cons (list (car p-names)
+                    (car b-vars-list)
+                    (car p-bodies))
+              (build-rec-procs-assoc (cdr p-names) (cdr b-vars-list) (cdr p-bodies))))))
+
 (define value-of
   (lambda (exp env)
     (cases expression exp
@@ -123,8 +142,10 @@
                                     (list-val-iter exp-res)))
            (proc-exp (vars exp)
                      (proc-val (procedure vars exp env)))
-           (letrec-exp (p-name b-vars p-body letrec-body)
-                       (value-of letrec-body (extend-env-rec p-name b-vars p-body env)))
+           (letrec-exp (p-names b-vars-list p-bodies letrec-body)
+                       (value-of letrec-body
+                                 (extend-env-rec-procs (build-rec-procs-assoc p-names b-vars-list p-bodies)
+                                                       env)))
            (call-exp (proc args)
                      (apply-procedure (expval->proc (value-of proc env))
                                       (map (lambda (arg)
@@ -189,7 +210,7 @@
      (number)
      const-exp)
     (expression
-     ("letrec" identifier "(" (arbno identifier) ")" "=" expression "in" expression)
+     ("letrec" (arbno identifier "(" (arbno identifier) ")" "=" expression) "in" expression)
      letrec-exp)
     (expression
      ("proc" "(" (arbno identifier) ")" expression)
@@ -260,7 +281,7 @@
   (lambda (case)
     (letrec [(env (empty-env))
              (res (value-of-program (scan&parse case) env))]
-      (eopl:printf "case: ~a, result: ~a\n" case res))))
+      (eopl:printf "case: ~a\nresult: ~a\n" case res))))
 
 (test-driver "3")
 (test-driver "-(2, 3)")
@@ -313,3 +334,11 @@ in (times4 3)")
    in (double 6)")
 
 (test-driver rec-simple-test)
+
+;; e3.32
+(define rec-multi-proc
+  "letrec
+          even(x) = if zero?(x) then 1 else (odd -(x,1))
+          odd(x) = if zero?(x) then 0 else (even -(x,1))
+   in (odd 13)")
+(test-driver rec-multi-proc)
