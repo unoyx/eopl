@@ -1,6 +1,14 @@
 #lang eopl
 ;; (require racket/trace)
 
+#|
+e3.34 使用procedure representation方式改造environment
+需要解决的核心问题是env需要有多态的支持。普通的extend-env和extend-env-rec
+都支持apply-env的行为，但是包含的数据和处理过程需要不同。
+一种可能的实现是，extend-env和extend-env-rec返回list，包含procedure和标识procedure类型的标记，
+apply-env依据标记的不同，采取不同的行为。
+|#
+
 (define-datatype environment environment?
   (empty-env)
   (extend-env
